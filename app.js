@@ -5,7 +5,6 @@ const axios = require('axios')
 const bodyParser = require('body-parser')
 require('dotenv').config()
 
-app.use(bodyParser.urlencoded())
 app.use(bodyParser.json())
 app.use(cors())
 
@@ -22,8 +21,12 @@ app.get('/get-intuit-client-id', (req, res) => {
 
 // - Route for setting tokens, requires authorization code (generated after authentication to the auth endpoint)
 app.post('/set-intuit-tokens', async (req, res) => {
-  const code = req.body.code
-  console.log('authorization code', code)
+  const code = req.body.code 
+  console.log('authorization code:', code)
+  const theState = req.body.state
+  console.log('state:', theState)
+  const realmId = req.body.realmId
+  console.log('realmId:', realmId)
   !code && res.status(400).send({ error: 'Missing authorization code' })
   try {
     const tokens = await getTokens(code)

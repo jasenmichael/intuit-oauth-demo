@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>QuickBooks Authorization</title>
+  </head>
+  <body>
+    <button id="connect-to-quickbooks-button">Connect to QuickBooks</button>
+    <div id="data"></div>
+
+    <script>
+      let options = {
+        method: 'get',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          Authorization: 'user:password'
+        }
+      }
+
+      document
+        .getElementById('connect-to-quickbooks-button')
+        .addEventListener('click', function () {
+          // when button clicked, get redirect url from backend, then redirect to it.
+          fetch('http://localhost:3000/get-intuit-client-id', options)
+            .then((res) => res.json())
+            .then((res) => {
+              const client_id = res.client_id
+              const redirect_uri = 'http://localhost:8080'
+              const scope = 'com.intuit.quickbooks.accounting'
+              const state = 'test'
+              const authUrl = `https://appcenter.intuit.com/connect/oauth2?client_id=${client_id}&redirect_uri=${redirect_uri}&response_type=code&scope=${scope}&state=${state}`
+              window.location.href = authUrl
+            })
+            .catch((e) => {
+              console.log(e)
+              document.getElementById('data').innerHTML = 'error getting auth endpoint'
+            })
+        })
+
+      // parse query params
+      const urlParams = new URLSearchParams(window.location.search)
+      const code = urlParams.get('code')
+      const theState = urlParams.get('state')
+      const realmId = urlParams.get('realmId')
+      // check for query params - if they exist, we're back from the auth flow
+      if (code && theState && realmId) {
+        console.log(code)
+        console.log(theState)
+        console.log(realmId)
+        document.getElementById('connect-to-quickbooks-button').remove()
+        document.getElementById('data').innerHTML = 'getting tokens'
+
+        // send code to backend to get tokens
+        options.method = 'POST'
+        options.body = JSON.stringify({ code, theState, realmId })
+        fetch('http://localhost:3000/set-intuit-tokens', options)
+          .then((res) => res.json())
+          .then((res) => {
+            console.log(res.tokens)
+            document.getElementById('data').innerHTML = `
+              <p>x_refresh_token_expires_in: ${res.tokens.x_refresh_token_expires_in}</p>
+              <p>refresh token: ${res.tokens.refresh_token}</p>
+              <p>access token: ${res.tokens.access_token}</p>
+              <p>token_type: ${res.tokens.token_type}</p>
+              <p>expires_in: ${res.tokens.expires_in}</p>
+            `
+            // clear query params from url
+            const nextURL = 'http://localhost:8080'
+            const nextTitle = 'QuickBooks Authenticated'
+            const nextState = { additionalInformation: 'QuickBooks Authenticated' }
+            window.history.pushState(nextState, nextTitle, nextURL)
+            window.history.replaceState(nextState, nextTitle, nextURL)
+          })
+          .catch((e) => {
+            console.log(e)
+            document.getElementById('data').innerHTML = 'error getting tokens'
+          })
+      }
+    </script>
+  </body>
+
+  <style>
+    body {
+      word-wrap: break-word;
+    }
+    /* #data, */
+    #connect-to-quickbooks-button {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 1rem 2rem;
+      font-size: 1.5rem;
+    }
+  </style>
+</html>
